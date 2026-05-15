@@ -138,23 +138,19 @@ class SpotDockUi(QWidget):
         self.layout().setSpacing(0)
 
         self.panel_wrapper = QWidget(self)
-
         self.panel_wrapper.setFixedSize(
             BAR_W,
             PANEL_COLLAPSED_H
         )
-
         self.panel_wrapper.move(
             0,
             WINDOW_H - BAR_H
         )
 
         panel_layout = QVBoxLayout(self.panel_wrapper)
-
         panel_layout.setContentsMargins(0, 0, 0, 8)
 
         self.panel_container = QWidget()
-
         self.panel_container.setObjectName("PanelContainer")
 
         panel_layout.addWidget(self.panel_container)
@@ -162,7 +158,6 @@ class SpotDockUi(QWidget):
         self._build_panel(self.panel_container)
 
         self.bar_widget = QWidget(self)
-
         self.bar_widget.setFixedSize(
             BAR_W,
             BAR_H
@@ -174,11 +169,9 @@ class SpotDockUi(QWidget):
         )
 
         bar_layout_outer = QVBoxLayout(self.bar_widget)
-
         bar_layout_outer.setContentsMargins(0, 0, 0, 0)
 
         self.container = QWidget()
-
         self.container.setObjectName("Container")
 
         bar_layout_outer.addWidget(self.container)
@@ -248,7 +241,6 @@ class SpotDockUi(QWidget):
         layout.setSpacing(10)
 
         header = QHBoxLayout()
-
         header.setSpacing(8)
 
         icon_label = QLabel()
@@ -271,7 +263,6 @@ class SpotDockUi(QWidget):
         icon_label.setFixedSize(28, 28)
 
         app_name = QLabel("SpotDock")
-
         app_name.setObjectName("AppName")
 
         header.addWidget(icon_label)
@@ -281,21 +272,16 @@ class SpotDockUi(QWidget):
         layout.addLayout(header)
 
         divider = QWidget()
-
         divider.setObjectName("Divider")
-
         divider.setFixedHeight(1)
 
         layout.addWidget(divider)
 
         tab_bar_widget = QWidget()
-
         tab_bar_widget.setObjectName("TabBar")
 
         tab_bar_layout = QHBoxLayout(tab_bar_widget)
-
         tab_bar_layout.setContentsMargins(0, 0, 0, 0)
-
         tab_bar_layout.setSpacing(4)
 
         self.tab_buttons = []
@@ -326,7 +312,6 @@ class SpotDockUi(QWidget):
         layout.addWidget(tab_bar_widget)
 
         self.tab_stack = QStackedWidget()
-
         self.tab_stack.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Expanding
@@ -343,11 +328,9 @@ class SpotDockUi(QWidget):
 
     def _create_empty_tab(self):
         page = QWidget()
-
         page.setObjectName("TabPage")
 
         layout = QVBoxLayout(page)
-
         layout.setContentsMargins(18, 18, 18, 18)
 
         return page
@@ -360,13 +343,10 @@ class SpotDockUi(QWidget):
 
     def _build_bar(self, parent):
         layout = QHBoxLayout(parent)
-
         layout.setContentsMargins(14, 14, 14, 14)
-
         layout.setSpacing(12)
 
         self.album_art = QLabel()
-
         self.album_art.setFixedSize(64, 64)
 
         pixmap = QPixmap("./assets/default_cover.png")
@@ -383,17 +363,14 @@ class SpotDockUi(QWidget):
         )
 
         rounded = QPixmap(64, 64)
-
         rounded.fill(Qt.transparent)
 
         painter = QPainter(rounded)
-
         painter.setRenderHint(
             QPainter.Antialiasing
         )
 
         path = QPainterPath()
-
         path.addRoundedRect(
             0,
             0,
@@ -404,13 +381,11 @@ class SpotDockUi(QWidget):
         )
 
         painter.setClipPath(path)
-
         painter.drawPixmap(
             0,
             0,
             scaled
         )
-
         painter.end()
 
         self.album_art.setPixmap(rounded)
@@ -418,24 +393,19 @@ class SpotDockUi(QWidget):
         layout.addWidget(self.album_art)
 
         info_layout = QVBoxLayout()
-
         info_layout.setSpacing(0)
 
         song_label = QLabel("No song playing")
-
         song_label.setObjectName("SongLabel")
 
         artist_label = QLabel("Spotify")
-
         artist_label.setObjectName("ArtistLabel")
 
         info_layout.addWidget(song_label)
         info_layout.addWidget(artist_label)
-
         info_layout.addSpacing(6)
 
         controls = QHBoxLayout()
-
         controls.setSpacing(6)
 
         button_icons = [
@@ -450,9 +420,7 @@ class SpotDockUi(QWidget):
             btn = QPushButton()
 
             btn.setFixedSize(32, 32)
-
             btn.setIcon(QIcon(icon_path))
-
             btn.setIconSize(QSize(20, 20))
 
             controls.addWidget(btn)
@@ -460,25 +428,18 @@ class SpotDockUi(QWidget):
         info_layout.addLayout(controls)
 
         layout.addLayout(info_layout)
-
         layout.addStretch()
 
         self.expand_button = QPushButton()
-
         self.expand_button.setParent(self.container)
-
         self.expand_button.setFixedSize(34, 34)
-
         self.expand_button.setIconSize(QSize(18, 18))
-
         self.expand_button.setIcon(
             QIcon("./assets/expand.png")
         )
 
         self.expand_button.move(360, 5)
-
         self.expand_button.raise_()
-
         self.expand_button.clicked.connect(
             self.toggle_expand
         )
@@ -496,7 +457,6 @@ class SpotDockUi(QWidget):
             )
 
             self.opacity_anim.setStartValue(0)
-
             self.opacity_anim.setEndValue(1)
 
             self.expand_button.setIcon(
@@ -513,7 +473,6 @@ class SpotDockUi(QWidget):
             )
 
             self.opacity_anim.setStartValue(1)
-
             self.opacity_anim.setEndValue(0)
 
             self.expand_button.setIcon(
@@ -521,7 +480,6 @@ class SpotDockUi(QWidget):
             )
 
         self.panel_anim.start()
-
         self.opacity_anim.start()
 
     def load_theme(self):

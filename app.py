@@ -17,7 +17,8 @@ from PyQt5.QtCore import (
     QSize,
     QPropertyAnimation,
     QEasingCurve,
-    pyqtProperty
+    pyqtProperty,
+    QTimer
 )
 
 from PyQt5.QtGui import (
@@ -28,6 +29,10 @@ from PyQt5.QtGui import (
     QColor,
     QBitmap
 )
+
+import requests
+
+from spotify_api import SpotifyManager
 
 PANEL_COLLAPSED_H = 0
 PANEL_EXPANDED_H = 510
@@ -109,6 +114,8 @@ THEMES = {
     """
 }
 
+songs = []
+
 
 class SpotDockUi(QWidget):
     def __init__(self):
@@ -118,9 +125,22 @@ class SpotDockUi(QWidget):
         self.panel_open = False
         self.current_theme = "glass"
 
+        self.spotify = SpotifyManager()
+
         self.setup_window()
         self.build_ui()
         self.load_theme()
+
+        self.spotify_timer = QTimer()
+
+        self.spotify_timer.timeout.connect(
+            self.update_spotify
+        )
+
+        self.spotify_timer.start(2000)
+
+        self.current_playlists = []
+        self.current_queue = []
 
     def setup_window(self):
         self.setWindowTitle("SpotDock")
@@ -352,25 +372,45 @@ class SpotDockUi(QWidget):
         return page
     
     def create_library_tab(self):
-        page = QWidget()
-        page.setObjectName("TabPage")
+        self.library_page = QWidget()
 
-        layout = QVBoxLayout(page)
+        self.library_page.setObjectName(
+            "TabPage"
+        )
 
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(6)
+        self.library_layout = QVBoxLayout(
+            self.library_page
+        )
+
+        self.library_layout.setContentsMargins(
+            14,
+            14,
+            14,
+            14
+        )
+
+        self.library_layout.setSpacing(6)
 
         title = QLabel("Library")
+
         title.setStyleSheet("""
             font-size: 16px;
             font-weight: 700;
         """)
 
-        layout.addWidget(title)
+        self.library_layout.addWidget(title)
 
-        layout.addStretch()
+        self.playlist_container = QVBoxLayout()
 
-        return page
+        self.library_layout.addLayout(
+            self.playlist_container
+        )
+
+        self.library_layout.addStretch()
+
+        self.load_playlists()
+
+        return self.library_page
     
     def create_playlist_tab(self):
         page = QWidget()
@@ -404,7 +444,17 @@ class SpotDockUi(QWidget):
 
             icon_label = QLabel()
             icon_label.setFixedSize(32, 32)
-            pixmap = QPixmap(icon)
+            if icon.startswith("http"):
+                response = requests.get(icon)
+
+                pixmap = QPixmap()
+
+                pixmap.loadFromData(
+                    response.content
+                )
+
+            else:
+                pixmap = QPixmap(icon)
             if pixmap.isNull():
                 pixmap = QPixmap(32, 32)
                 pixmap.fill(Qt.gray)
@@ -463,7 +513,11 @@ class SpotDockUi(QWidget):
 
             layout.addWidget(row)
 
-        playlist_name = "Playlist Name"
+        playlist_name = getattr(
+            self,
+            "current_playlist_name",
+            "Playlist"
+        )
 
         title = QLabel(playlist_name)
         title.setStyleSheet("""
@@ -473,7 +527,12 @@ class SpotDockUi(QWidget):
 
         layout.addWidget(title)
 
-        add_song_row("Dont Look Back In Anger", "Oasis", "./assets/default_cover.png")
+        for s in songs:
+            add_song_row(
+                s["name"],
+                s["artist"],
+                s["image"]
+            )
 
         layout.addStretch()
 
@@ -618,14 +677,14 @@ class SpotDockUi(QWidget):
         info_layout = QVBoxLayout()
         info_layout.setSpacing(0)
 
-        song_label = QLabel("No song playing")
-        song_label.setObjectName("SongLabel")
+        self.song_label = QLabel("No song playing")
+        self.song_label.setObjectName("SongLabel")
 
-        artist_label = QLabel("Spotify")
-        artist_label.setObjectName("ArtistLabel")
+        self.artist_label = QLabel("Spotify")
+        self.artist_label.setObjectName("ArtistLabel")
 
-        info_layout.addWidget(song_label)
-        info_layout.addWidget(artist_label)
+        info_layout.addWidget(self.song_label)
+        info_layout.addWidget(self.artist_label)
         info_layout.addSpacing(6)
 
         controls = QHBoxLayout()
@@ -639,6 +698,8 @@ class SpotDockUi(QWidget):
             "./assets/loop.png"
         ]
 
+        self.control_buttons = []
+
         for icon_path in button_icons:
             btn = QPushButton()
 
@@ -647,6 +708,26 @@ class SpotDockUi(QWidget):
             btn.setIconSize(QSize(20, 20))
 
             controls.addWidget(btn)
+
+            self.control_buttons.append(btn)
+
+        self.shuffle_button = self.control_buttons[0]
+        self.prev_button = self.control_buttons[1]
+        self.play_button = self.control_buttons[2]
+        self.next_button = self.control_buttons[3]
+        self.loop_button = self.control_buttons[4]
+
+        self.prev_button.clicked.connect(
+            self.spotify.previous_song
+        )
+
+        self.next_button.clicked.connect(
+            self.spotify.next_song
+        )
+
+        self.play_button.clicked.connect(
+            self.toggle_playback
+        )
 
         info_layout.addLayout(controls)
 
@@ -666,6 +747,8 @@ class SpotDockUi(QWidget):
         self.expand_button.clicked.connect(
             self.toggle_expand
         )
+
+        self.play_button.setIcon(QIcon("./assets/play.png"))
 
     def toggle_expand(self):
         self.panel_open = not self.panel_open
@@ -714,6 +797,178 @@ class SpotDockUi(QWidget):
         stylesheet = THEMES.get(theme_name, "")
         font_rule = f"* {{ font-size: {self.font_size}pt; }}"
         self.setStyleSheet(stylesheet + font_rule)
+
+    def toggle_playback(self):
+        playback = self.spotify.get_current_playback()
+
+        if not playback:
+            return
+
+        if playback["is_playing"]:
+            self.spotify.pause()
+        else:
+            self.spotify.play()
+
+
+    def update_spotify(self):
+        playback = self.spotify.get_current_playback()
+
+        if not playback:
+            return
+
+        item = playback.get("item")
+
+        if not item:
+            return
+
+        song_name = item["name"]
+
+        artists = ", ".join(
+            artist["name"]
+            for artist in item["artists"]
+        )
+
+        self.song_label.setText(song_name)
+        self.artist_label.setText(artists)
+
+        if playback["is_playing"]:
+            self.play_button.setIcon(
+                QIcon("./assets/paused.png")
+            )
+
+        else:
+            self.play_button.setIcon(
+                QIcon("./assets/play.png")
+            )
+
+        image_url = item["album"]["images"][0]["url"]
+
+        try:
+            response = requests.get(image_url)
+
+            pixmap = QPixmap()
+
+            pixmap.loadFromData(
+                response.content
+            )
+
+            scaled = pixmap.scaled(
+                64,
+                64,
+                Qt.KeepAspectRatioByExpanding,
+                Qt.SmoothTransformation
+            )
+
+            rounded = QPixmap(64, 64)
+            rounded.fill(Qt.transparent)
+
+            painter = QPainter(rounded)
+
+            painter.setRenderHint(
+                QPainter.Antialiasing
+            )
+
+            path = QPainterPath()
+
+            path.addRoundedRect(
+                0,
+                0,
+                64,
+                64,
+                10,
+                10
+            )
+
+            painter.setClipPath(path)
+
+            painter.drawPixmap(
+                0,
+                0,
+                scaled
+            )
+
+            painter.end()
+
+            self.album_art.setPixmap(
+                rounded
+            )
+
+        except:
+            pass
+
+    def load_playlists(self):
+        try:
+            playlists = self.spotify.get_playlists()
+
+            self.current_playlists = playlists[
+                "items"
+            ]
+
+            for playlist in self.current_playlists:
+                btn = QPushButton(
+                    playlist["name"]
+                )
+
+                btn.clicked.connect(
+                    lambda checked=False,
+                    p=playlist:
+                    self.open_playlist(p)
+                )
+
+                self.playlist_container.addWidget(
+                    btn
+                )
+
+        except:
+            pass
+
+    def open_playlist(self, playlist):
+        self.tab_buttons[1].click()
+
+        playlist_tracks = self.spotify.sp.playlist_tracks(
+            playlist["id"]
+        )
+
+        global songs
+
+        songs.clear()
+
+        for item in playlist_tracks["items"]:
+            track = item.get("track")
+
+            if not track:
+                continue
+
+            songs.append({
+                "name": track["name"],
+                "artist": ", ".join(
+                    a["name"]
+                    for a in track["artists"]
+                ),
+                "image": track["album"]["images"][0]["url"]
+            })
+
+        self.refresh_playlist_tab(
+            playlist["name"]
+        )
+
+    def refresh_playlist_tab(self, playlist_name):
+        self.current_playlist_name = (
+            playlist_name
+        )
+
+        new_tab = self.create_playlist_tab()
+
+        self.tab_stack.removeWidget(
+            self.tab_stack.widget(1)
+        )
+
+        self.tab_stack.insertWidget(
+            1,
+            new_tab
+        )
+
+        self.tab_stack.setCurrentIndex(1)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:

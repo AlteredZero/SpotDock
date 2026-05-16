@@ -6,7 +6,10 @@ from PyQt5.QtWidgets import (
     QLabel,
     QStackedWidget,
     QSizePolicy,
-    QGraphicsOpacityEffect
+    QGraphicsOpacityEffect,
+    QCheckBox,
+    QComboBox,
+    QSlider
 )
 
 from PyQt5.QtCore import (
@@ -22,7 +25,8 @@ from PyQt5.QtGui import (
     QPainter,
     QPainterPath,
     QIcon,
-    QColor
+    QColor,
+    QBitmap
 )
 
 PANEL_COLLAPSED_H = 0
@@ -46,7 +50,7 @@ THEMES = {
         #Container, #PanelContainer {
             background-color: rgba(18, 18, 18, 170);
             border-radius: 22px;
-            border: 1px solid rgba(255,255,255,35);
+            border: 1px solid rgba(255, 255, 255, 35);
         }
 
         QLabel {
@@ -155,7 +159,7 @@ class SpotDockUi(QWidget):
 
         panel_layout.addWidget(self.panel_container)
 
-        self._build_panel(self.panel_container)
+        self.build_panel(self.panel_container)
 
         self.bar_widget = QWidget(self)
         self.bar_widget.setFixedSize(
@@ -176,7 +180,7 @@ class SpotDockUi(QWidget):
 
         bar_layout_outer.addWidget(self.container)
 
-        self._build_bar(self.container)
+        self.build_bar(self.container)
 
         self.panel_anim = QPropertyAnimation(
             self,
@@ -208,10 +212,10 @@ class SpotDockUi(QWidget):
             QEasingCurve.OutCubic
         )
 
-    def _get_panel_height(self):
+    def get_panel_height(self):
         return self.panel_wrapper.height()
 
-    def _set_panel_height(self, h):
+    def set_panel_height(self, h):
         self.panel_wrapper.setFixedHeight(h)
 
         spacing = 8 if h > 0 else 0
@@ -230,11 +234,11 @@ class SpotDockUi(QWidget):
 
     panelHeight = pyqtProperty(
         int,
-        _get_panel_height,
-        _set_panel_height
+        get_panel_height,
+        set_panel_height
     )
 
-    def _build_panel(self, parent):
+    def build_panel(self, parent):
         layout = QVBoxLayout(parent)
 
         layout.setContentsMargins(14, 14, 14, 14)
@@ -300,7 +304,7 @@ class SpotDockUi(QWidget):
 
             btn.clicked.connect(
                 lambda checked, idx=i:
-                self._switch_tab(idx)
+                self.switch_tab(idx)
             )
 
             tab_bar_layout.addWidget(btn)
@@ -317,16 +321,28 @@ class SpotDockUi(QWidget):
             QSizePolicy.Expanding
         )
 
-        for _ in range(4):
-            self.tab_stack.addWidget(
-                self._create_empty_tab()
-            )
+        self.tab_stack.addWidget(
+            self.create_library_tab()
+        )
+
+        self.tab_stack.addWidget(
+            self.create_playlist_tab()
+        )
+
+        self.tab_stack.addWidget(
+            self.create_queue_tab()
+        )
+
+        self.tab_stack.addWidget(
+            self.create_settings_tab()
+        )
 
         layout.addWidget(self.tab_stack)
 
-        self._switch_tab(0)
+        self.switch_tab(0)
 
-    def _create_empty_tab(self):
+    #temp
+    def create_empty_tab(self):
         page = QWidget()
         page.setObjectName("TabPage")
 
@@ -334,14 +350,221 @@ class SpotDockUi(QWidget):
         layout.setContentsMargins(18, 18, 18, 18)
 
         return page
+    
+    def create_library_tab(self):
+        page = QWidget()
+        page.setObjectName("TabPage")
 
-    def _switch_tab(self, idx):
+        layout = QVBoxLayout(page)
+
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(6)
+
+        title = QLabel("Library")
+        title.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+        """)
+
+        layout.addWidget(title)
+
+        layout.addStretch()
+
+        return page
+    
+    def create_playlist_tab(self):
+        page = QWidget()
+        page.setObjectName("TabPage")
+
+        layout = QVBoxLayout(page)
+
+        layout.setContentsMargins(14, 14, 14, 14)   
+        layout.setSpacing(6)
+        
+        def add_song_row(name, artist, icon):
+            row = QWidget()
+
+            row.setStyleSheet("""
+                background-color: rgba(255, 255, 255, 8);
+                border-radius: 10px;
+            """)
+
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(10, 8, 10, 8)
+
+            play_button = QPushButton()
+            play_button.setStyleSheet("""
+                background-color: transparent;
+            """)
+            play_button.setFixedSize(32, 32)
+            play_button.setIcon(QIcon("./assets/paused.png"))
+            play_button.setIconSize(QSize(20, 20))
+
+            row_layout.addWidget(play_button)
+
+            icon_label = QLabel()
+            icon_label.setFixedSize(32, 32)
+            pixmap = QPixmap(icon)
+            if pixmap.isNull():
+                pixmap = QPixmap(32, 32)
+                pixmap.fill(Qt.gray)
+            
+            scaled = pixmap.scaled(32, 32, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            rounded = QPixmap(32, 32)
+            rounded.fill(Qt.transparent)
+            
+            painter = QPainter(rounded)
+            painter.setRenderHint(QPainter.Antialiasing)
+            path = QPainterPath()
+            path.addRoundedRect(0, 0, 32, 32, 5, 5)
+            painter.setClipPath(path)
+            painter.drawPixmap(0, 0, scaled)
+            painter.end()
+            
+            icon_label.setPixmap(rounded)
+            row_layout.addWidget(icon_label)
+
+
+            text_container = QVBoxLayout()
+            text_container.setSpacing(2)
+
+            song_name = QLabel(name)
+            song_name.setStyleSheet("""
+                background-color: transparent;
+                font-family: Segoe UI;
+                font-size: 13px;
+                font-weight: bold;
+            """)
+
+            artist_name = QLabel(artist)
+            artist_name.setStyleSheet("""
+                background-color: transparent;
+                font-family: Segoe UI;
+                font-size: 11px;
+                color: rgba(255,255,255,170);
+            """)
+
+            text_container.addWidget(song_name)
+            text_container.addWidget(artist_name)
+
+            row_layout.addLayout(text_container)
+
+            row_layout.addStretch()
+
+            config_button = QPushButton()
+            config_button.setStyleSheet("""
+                background-color: transparent;
+            """)
+            config_button.setFixedSize(32, 32)
+            config_button.setIcon(QIcon("./assets/ConfigIcon.png"))
+            config_button.setIconSize(QSize(20, 20))
+
+            row_layout.addWidget(config_button)
+
+            layout.addWidget(row)
+
+        playlist_name = "Playlist Name"
+
+        title = QLabel(playlist_name)
+        title.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+        """)
+
+        layout.addWidget(title)
+
+        add_song_row("Dont Look Back In Anger", "Oasis", "./assets/default_cover.png")
+
+        layout.addStretch()
+
+        return page
+    
+    def create_queue_tab(self):
+        page = QWidget()
+        page.setObjectName("TabPage")
+
+        layout = QVBoxLayout(page)
+
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(6)
+
+        def add_song_row(label, widget):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label))
+            row.addWidget(widget)
+            layout.addLayout(row)
+
+        title = QLabel("Queue")
+        title.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+        """)
+
+        layout.addWidget(title)
+
+        layout.addStretch()
+
+        songs = [
+            ("dont look back in anger", "oasis"),
+            ("dont look back in anger", "oasis"),
+            ("dont look back in anger", "oasis")
+        ]
+
+        return page
+
+    
+    def create_settings_tab(self):
+        page = QWidget()
+        page.setObjectName("TabPage")
+
+        layout = QVBoxLayout(page)
+
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(6)
+
+        def add_row(label, widget):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label))
+            row.addWidget(widget)
+            layout.addLayout(row)
+
+        title = QLabel("Settings")
+        title.setStyleSheet("""
+            font-size: 16px;
+            font-weight: 700;
+        """)
+
+        layout.addWidget(title)
+
+        self.theme_selector = QComboBox()
+        for t in THEMES:
+            self.theme_selector.addItem(t)
+        self.theme_selector.currentTextChanged.connect(self.apply_theme)
+        add_row("Theme:", self.theme_selector)
+
+        self.transparency_slider = QSlider(Qt.Horizontal)
+        self.transparency_slider.setFixedWidth(200) 
+        self.transparency_slider.setRange(0, 100)
+        self.transparency_slider.setSingleStep(1)
+        add_row("Transparency:", self.transparency_slider)
+
+        self.blur_slider = QSlider(Qt.Horizontal)
+        self.blur_slider.setFixedWidth(200) 
+        self.blur_slider.setRange(0, 100)
+        self.blur_slider.setSingleStep(1)
+        add_row("Blur:", self.blur_slider)
+
+        layout.addStretch()
+
+        return page
+
+    def switch_tab(self, idx):
         for i, btn in enumerate(self.tab_buttons):
             btn.setChecked(i == idx)
 
         self.tab_stack.setCurrentIndex(idx)
 
-    def _build_bar(self, parent):
+    def build_bar(self, parent):
         layout = QHBoxLayout(parent)
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(12)
@@ -486,6 +709,11 @@ class SpotDockUi(QWidget):
         self.setStyleSheet(
             THEMES[self.current_theme]
         )
+
+    def apply_theme(self, theme_name, font_size):
+        stylesheet = THEMES.get(theme_name, "")
+        font_rule = f"* {{ font-size: {self.font_size}pt; }}"
+        self.setStyleSheet(stylesheet + font_rule)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
